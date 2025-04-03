@@ -15,7 +15,6 @@ lemma sinWithinvFunIsContinuousOnPosReal : ContinuousOn (fun x : ℝ => Real.sin
 lemma topoSinCurveIsContinuousOnPosReal : ContinuousOn (fun x ↦ (x, Real.sin (x⁻¹))) (Set.Ioi (0 : ℝ)) :=
   ContinuousOn.prod continuous_id.continuousOn sinWithinvFunIsContinuousOnPosReal
 
-
 def S : Set (ℝ × ℝ) := (fun x ↦ (x, Real.sin (x⁻¹))) '' Set.Ioi (0 : ℝ)
 
 def Z : Set (ℝ × ℝ) := { (0, 0) }
@@ -29,6 +28,22 @@ lemma posIntervalIsPathConnected : IsPathConnected (Set.Ioi (0 : ℝ)) := by
     simp
 
 lemma SIsPathConn : IsPathConnected S := by
-  apply IsPathConnected.image
+  apply IsPathConnected.image'
   · exact posIntervalIsPathConnected
   · exact topoSinCurveIsContinuousOnPosReal
+
+-- Connectedness
+lemma SIsConnected : IsConnected S := SIsPathConn.isConnected
+
+lemma ZIsConnected : IsConnected Z := isConnected_singleton
+
+lemma UIsConnected : IsConnected U := by
+  apply IsConnected.union
+  · use (0, 0)
+    constructor
+    · sorry
+    · rfl
+  · exact SIsConnected
+  · exact ZIsConnected
+
+-- Need To Prove U not path Connected
