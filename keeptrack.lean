@@ -78,14 +78,3 @@ lemma TisNotPathConn : ¬ (IsPathConnected T)  := by
   unfold T at h
   obtain ⟨y, hy, hx⟩ := h
   sorry
-
-
--- Define a sequence
-noncomputable def mySeq (n : ℕ) : ℝ := 1 / (n + 1)
-
--- Show that the sequence tends to zero
-example : Tendsto mySeq atTop (𝓝 0) := by
-rw
-
-sorry
-
