@@ -1,5 +1,9 @@
 import Mathlib
---Defining each set
+
+open Topology Filter
+
+noncomputable def sinCurve := fun x ↦ (x, Real.sin (x⁻¹))
+def PosReal := Set.Ioi (0 : ℝ)
 
 def S : Set (ℝ × ℝ) := (fun x ↦ (x, Real.sin (x⁻¹))) '' Set.Ioi (0 : ℝ)
 
@@ -7,6 +11,7 @@ def Z : Set (ℝ × ℝ) := { (0, 0) }
 
 def T : Set (ℝ × ℝ) := S ∪ Z
 
+-- SineCurve is continuous and path-connected
 lemma invFunIsContinuousOnPosReal : ContinuousOn (fun x : ℝ => x⁻¹) (Set.Ioi (0 : ℝ)) := by
   apply ContinuousOn.inv₀
   · exact continuous_id.continuousOn
@@ -14,10 +19,8 @@ lemma invFunIsContinuousOnPosReal : ContinuousOn (fun x : ℝ => x⁻¹) (Set.Io
     exact ne_of_gt hxIsInIoi
 
 lemma sinWithinvFunIsContinuousOnPosReal : ContinuousOn (fun x : ℝ => Real.sin (x⁻¹)) (Set.Ioi (0 : ℝ)) := by
-  apply Real.continuous_sin.continuousOn.comp
+  apply Real.continuous_sin.comp_continuousOn
   · exact invFunIsContinuousOnPosReal
-  · intro x hx -- getting some wierd type when checking goal
-    exact Set.mem_of_subset_of_mem (fun ⦃a⦄ a ↦ trivial) rfl -- i don't understand what's going on here (proved with exact?)
 
 lemma topoSinCurveIsContinuousOnPosReal : ContinuousOn (fun x ↦ (x, Real.sin (x⁻¹))) (Set.Ioi (0 : ℝ)) :=
   ContinuousOn.prod continuous_id.continuousOn sinWithinvFunIsContinuousOnPosReal
@@ -33,26 +36,56 @@ lemma SIsPathConn : IsPathConnected S := by
   · exact posIntervalIsPathConnected
   · exact topoSinCurveIsContinuousOnPosReal
 
--- Connectedness
+-- T is connected
 lemma SisConnected : IsConnected S := SIsPathConn.isConnected
 
 lemma ZisConnected : IsConnected Z := isConnected_singleton
 
+def Scls := closure S
+
+local instance : Fact ((0 : ℝ) ≤ 1) := ⟨by linarith⟩
+noncomputable example : CompleteLattice unitInterval := inferInstance
+
+lemma TsubClsOfS : T ⊆ Scls := by
+  intro x hx
+  cases hx with
+  | inl hxS => exact subset_closure hxS
+  | inr hxZ =>
+      rw [hxZ]
+      let f :  ℕ →  ℝ × ℝ := fun n => ((n * Real.pi)⁻¹, 0)
+      have hf : Tendsto f atTop (𝓝 (0, 0))  := by
+        apply Filter.Tendsto.prod_mk_nhds
+        · have hnMulpiAtTop : Tendsto (fun n : ℕ => n * Real.pi) atTop atTop := by
+            apply Filter.Tendsto.atTop_mul_const'
+            · exact Real.pi_pos
+            · exact  tendsto_natCast_atTop_atTop
+          exact tendsto_inv_atTop_zero.comp hnMulpiAtTop
+        · exact tendsto_const_nhds
+      have hf' : ∀ᶠ n in atTop, f n ∈ S := by sorry
+      apply mem_closure_of_tendsto hf hf'
+
+theorem TisConnected : IsConnected T := by
+  apply IsConnected.subset_closure
+  · exact SisConnected
+  · tauto_set
+  · exact TsubClsOfS
+
+
+-- T is Path-connected
 lemma TisNotPathConn : ¬ (IsPathConnected T)  := by
-  -- unfold IsPathConnected
+  unfold IsPathConnected
   by_contra h
-  unfold IsPathConnected at h
-  -- obtain ⟨U, h, j⟩ := h
+  unfold T at h
+  obtain ⟨y, hy, hx⟩ := h
   sorry
 
-lemma TIsConnected : IsPreconnected T := by
-    unfold IsPreconnected
-    by_contra h
-    push_neg at h
-    obtain ⟨U, V, hU, hV, hUnion, hDisj, hSep⟩ := h
 
-    have SisPreconnected : IsPreconnected S := SisConnected.isPreconnected
-    rw[IsPreconnected] at SisPreconnected
-    let U' := U ∩ S
-    let V' := V ∩ S
-    sorry
+-- Define a sequence
+noncomputable def mySeq (n : ℕ) : ℝ := 1 / (n + 1)
+
+-- Show that the sequence tends to zero
+example : Tendsto mySeq atTop (𝓝 0) := by
+rw
+
+sorry
+
