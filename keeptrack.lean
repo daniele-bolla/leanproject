@@ -2,15 +2,58 @@ import Mathlib
 
 open Topology Filter
 
-noncomputable def sinCurve := fun x ↦ (x, Real.sin (x⁻¹))
-def PosReal := Set.Ioi (0 : ℝ)
-
 def S : Set (ℝ × ℝ) := (fun x ↦ (x, Real.sin (x⁻¹))) '' Set.Ioi (0 : ℝ)
 
 def Z : Set (ℝ × ℝ) := { (0, 0) }
 
 def T : Set (ℝ × ℝ) := S ∪ Z
 
+def clsOfS := closure S
+
+lemma TsubClsOfS : T ⊆ clsOfS := by
+  intro x hx
+  cases hx with
+  | inl hxS => exact subset_closure hxS
+  | inr hxZ =>
+      rw [hxZ]
+      let f :  ℕ →  ℝ × ℝ := fun n => ((n * Real.pi)⁻¹, 0)
+      have hnMulpiAtTop : Tendsto (fun n : ℕ => n* Real.pi) atTop atTop := by
+        apply Filter.Tendsto.atTop_mul_const'
+        · exact Real.pi_pos
+        · exact tendsto_natCast_atTop_atTop
+      have hf : Tendsto f atTop (𝓝 (0, 0))  := by
+        apply Filter.Tendsto.prod_mk_nhds
+        · exact tendsto_inv_atTop_zero.comp hnMulpiAtTop
+        · exact tendsto_const_nhds
+      have hf' : ∀ᶠ n in atTop, f n ∈ S := by
+        have hfInS : ∀ n, f n ∈ S := by -- need to add n > 0 here
+          intro n
+          use (n * Real.pi)⁻¹
+          constructor
+          rw [Set.mem_Ioi]
+          · apply inv_pos.mpr
+            apply mul_pos
+            · sorry
+            · exact Real.pi_pos
+          · unfold f
+            calc (fun x ↦ (x, Real.sin x⁻¹)) (n * Real.pi)⁻¹ =
+              ((n * Real.pi)⁻¹, Real.sin ((n * Real.pi)⁻¹)⁻¹) := by rfl
+              _ = ((n * Real.pi)⁻¹, Real.sin (n * Real.pi)) := by
+                  congr
+                  simp only [inv_inv]
+              _ = ((n * Real.pi)⁻¹,0) := by
+                congr
+                apply Real.sin_nat_mul_pi
+        filter_upwards [Filter.Eventually.of_forall hfInS] with n hn -- need to replace Eventually.of_forall after the previous change
+        exact hn
+      apply mem_closure_of_tendsto hf hf'
+
+
+local instance : Fact ((0 : ℝ) ≤ 1) := ⟨by linarith⟩
+noncomputable example : CompleteLattice unitInterval := inferInstance
+
+noncomputable def sinCurve := fun x ↦ (x, Real.sin (x⁻¹))
+def PosReal := Set.Ioi (0 : ℝ)
 -- SineCurve is continuous and path-connected
 lemma invFunIsContinuousOnPosReal : ContinuousOn (fun x : ℝ => x⁻¹) (Set.Ioi (0 : ℝ)) := by
   apply ContinuousOn.inv₀
@@ -40,36 +83,11 @@ lemma SIsPathConn : IsPathConnected S := by
 lemma SisConnected : IsConnected S := SIsPathConn.isConnected
 
 lemma ZisConnected : IsConnected Z := isConnected_singleton
-
-def Scls := closure S
-
-local instance : Fact ((0 : ℝ) ≤ 1) := ⟨by linarith⟩
-noncomputable example : CompleteLattice unitInterval := inferInstance
-
-lemma TsubClsOfS : T ⊆ Scls := by
-  intro x hx
-  cases hx with
-  | inl hxS => exact subset_closure hxS
-  | inr hxZ =>
-      rw [hxZ]
-      let f :  ℕ →  ℝ × ℝ := fun n => ((n * Real.pi)⁻¹, 0)
-      have hf : Tendsto f atTop (𝓝 (0, 0))  := by
-        apply Filter.Tendsto.prod_mk_nhds
-        · have hnMulpiAtTop : Tendsto (fun n : ℕ => n * Real.pi) atTop atTop := by
-            apply Filter.Tendsto.atTop_mul_const'
-            · exact Real.pi_pos
-            · exact  tendsto_natCast_atTop_atTop
-          exact tendsto_inv_atTop_zero.comp hnMulpiAtTop
-        · exact tendsto_const_nhds
-      have hf' : ∀ᶠ n in atTop, f n ∈ S := by sorry
-      apply mem_closure_of_tendsto hf hf'
-
 theorem TisConnected : IsConnected T := by
   apply IsConnected.subset_closure
   · exact SisConnected
   · tauto_set
   · exact TsubClsOfS
-
 
 -- T is Path-connected
 lemma TisNotPathConn : ¬ (IsPathConnected T)  := by
@@ -78,3 +96,4 @@ lemma TisNotPathConn : ¬ (IsPathConnected T)  := by
   unfold T at h
   obtain ⟨y, hy, hx⟩ := h
   sorry
+
