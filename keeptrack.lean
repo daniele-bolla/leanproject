@@ -22,18 +22,18 @@ lemma TsubClsOfS : T ⊆ clsOfS := by
         · exact Real.pi_pos
         · exact tendsto_natCast_atTop_atTop
       have hf : Tendsto f atTop (𝓝 (0, 0))  := by
-        apply Filter.Tendsto.prod_mk_nhds
+        apply Filter.Tendsto.prodMk_nhds
         · exact tendsto_inv_atTop_zero.comp hnMulpiAtTop
         · exact tendsto_const_nhds
       have hf' : ∀ᶠ n in atTop, f n ∈ S := by
-        have hfInS : ∀ n, f n ∈ S := by -- need to add n > 0 here
-          intro n
+        have hfInS : ∀ n : ℕ, 0 < n → f n ∈ S := by
+          intro n hn
           use (n * Real.pi)⁻¹
           constructor
           rw [Set.mem_Ioi]
           · apply inv_pos.mpr
             apply mul_pos
-            · sorry
+            · exact Nat.cast_pos.mpr hn
             · exact Real.pi_pos
           · unfold f
             calc (fun x ↦ (x, Real.sin x⁻¹)) (n * Real.pi)⁻¹ =
@@ -44,8 +44,7 @@ lemma TsubClsOfS : T ⊆ clsOfS := by
               _ = ((n * Real.pi)⁻¹,0) := by
                 congr
                 apply Real.sin_nat_mul_pi
-        filter_upwards [Filter.Eventually.of_forall hfInS] with n hn -- need to replace Eventually.of_forall after the previous change
-        exact hn
+        filter_upwards [eventually_gt_atTop 0] using hfInS
       apply mem_closure_of_tendsto hf hf'
 
 
@@ -66,7 +65,7 @@ lemma sinWithinvFunIsContinuousOnPosReal : ContinuousOn (fun x : ℝ => Real.sin
   · exact invFunIsContinuousOnPosReal
 
 lemma topoSinCurveIsContinuousOnPosReal : ContinuousOn (fun x ↦ (x, Real.sin (x⁻¹))) (Set.Ioi (0 : ℝ)) :=
-  ContinuousOn.prod continuous_id.continuousOn sinWithinvFunIsContinuousOnPosReal
+  ContinuousOn.prodMk continuous_id.continuousOn sinWithinvFunIsContinuousOnPosReal
 
 lemma posIntervalIsPathConnected : IsPathConnected (Set.Ioi (0 : ℝ)) := by
   apply Convex.isPathConnected
@@ -96,4 +95,3 @@ lemma TisNotPathConn : ¬ (IsPathConnected T)  := by
   unfold T at h
   obtain ⟨y, hy, hx⟩ := h
   sorry
-
