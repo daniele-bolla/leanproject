@@ -16,13 +16,9 @@ def T : Set (ℝ × ℝ) := S ∪ Z
 local instance : Fact ((0 : ℝ) ≤ 1) := ⟨by linarith⟩
 noncomputable instance : CompleteLattice unitInterval := by infer_instance
 
+lemma TisNotPathConnSup : ¬ (IsPathConnected T)  := by
 
-lemma TisNotPathConn : ¬ (IsPathConnected T)  := by
-
-  -- Suppose there exists a path
   intro hPathConn
-
-  -- Pick two points in T: the limit point of S (0,0) and some point  (x > 0, y= sin(1⧸x) )
   let z : ℝ×ℝ := (0, 0)
   let w_x: ℝ := (2)⁻¹
   let w : ℝ×ℝ := sinCurve w_x
@@ -40,72 +36,173 @@ lemma TisNotPathConn : ¬ (IsPathConnected T)  := by
       norm_num
     · rfl
 
-  -- Let x: R^2 → R be the x-coordinate function, which is continuous
   let xcoor : ℝ × ℝ → ℝ := Prod.fst
   have xcoorContinuous:  Continuous (xcoor : ℝ × ℝ → ℝ) :=
     continuous_fst
 
-  -- Let p be  a Path from z to w in T
   apply IsPathConnected.joinedIn at hPathConn
   specialize hPathConn z hz w hw
-  have hPath := JoinedIn.somePath hPathConn
+  let hPath := JoinedIn.somePath hPathConn
 
   let xcoordPath := fun t => xcoor (hPath t)
   have xcoordPathContinuous : Continuous (xcoordPath : unitInterval → ℝ) := by
     apply xcoorContinuous.comp
     · exact hPath.continuous
 
-  -- Let t0 = inf{t ∈ [0, 1] : x(p(t)) > 0} (times of jump from z to sine curve)
-  -- let A : Set unitInterval := { t |xcoordPath t > 0 }
-  -- let t₀ := sInf A
-
   let A : Set unitInterval := { t | xcoordPath t = 0 }
-  let t₀ := sSup A
 
-  -- For t > t0, x(p(t)) > 0
-  have hLet₀ : ∀ t : unitInterval, t > t₀ → xcoordPath t = 0 := by sorry
+  have A_closed : IsClosed A := by
+    exact isClosed_singleton.preimage xcoordPathContinuous
+
+  have A_nonempty : A.Nonempty := by
+    use 0
+    have h_xcoordPath0 : xcoordPath 0 = 0 := by
+      simp only [xcoordPath, Function.comp_apply, xcoor]
+      rw [hPath.source]
+
+    exact h_xcoordPath0
 
 
-  -- By continuity of x ◦ p at t0, x(p(t0)) = limt→t_0 x(p(t)) = 0, so p(t0) = (0, 0).
+  have A_compact : IsCompact A := by
+    exact A_closed.isCompact
 
-    -- x(p(t0)) = limt→t₀⊹ x(p(t)) = 0 ( use closness of set A )
-  have left_limit : Tendsto xcoordPath (𝓝[>] t₀) (𝓝 0)  := by
-    -- apply tendsto_nhds_unique (ContinuousAt.tendsto (xcoordPathContinuous.continuousAt t₀)) (tendsto_const_nhds 0)
-    -- exact nhds_ne_bot 0
-    sorry
-  have hRightLimEq : xcoordPath t₀ = 0 := by
-    -- rw ← tendsto_nhds_unique (xcoordPathContinuous.continuousAt t₀) left_limit
-    sorry
-    -- sorry
+  let t₀ : unitInterval := sSup A
 
-  -- 0, so p(t0) = (0, 0)
-  have hPathT₀: hPath t₀ = z := by sorry
+  have t₀_mem : t₀ ∈ A :=
+    IsCompact.sSup_mem A_compact A_nonempty
 
-  -- By continuity of p at t₀, there is δ > 0 such that
-  -- ∀ t ∈ [t₀, t₀+δ], ||p(t) - p(t₀)|| < 1/2
+  have xcoordPathAtTEqZero : xcoordPath t₀ = 0 :=
+    t₀_mem
+  -- , so p(t0) = (0, 0)
+  -- I don't ike this too long
+  have hPathT₀: hPath t₀ = z := by
+    unfold z
+    apply Prod.ext_iff.mpr
 
-  have continuityBound : ∃ δ > 0, ∀ t : unitInterval, dist t t₀ < δ →
+    have hPathT₀IsInT : hPath t₀ ∈ T := by
+      exact hPathConn.somePath_mem t₀
+
+    have hPathT₀_x_is_0 : (hPath t₀).1 = 0 := by
+      exact xcoordPathAtTEqZero
+
+    unfold T at hPathT₀IsInT
+
+    constructor
+    · apply xcoordPathAtTEqZero
+    ·cases hPathT₀IsInT with
+    | inl hS =>
+        exfalso
+
+        obtain ⟨xPosreal, hxInPosReal, h_eq_path⟩ := hS
+        let x_val : ℝ := xPosreal
+        have hx_valPos : x_val > 0 := by
+         dsimp [x_val] at *
+         dsimp [PosReal] at hxInPosReal
+         simpa using hxInPosReal
+
+        have hPath_x_eq_x_val : (hPath t₀).1 = x_val := by
+          simpa [sinCurve, x_val] using
+          (congrArg Prod.fst h_eq_path).symm
+
+
+        rw [hPath_x_eq_x_val] at hPathT₀_x_is_0
+        linarith [hx_valPos, hPathT₀_x_is_0]
+
+    | inr hZ =>
+
+        have hZ_eq : hPath t₀ = (0, 0) := by
+          simpa [Z] using hZ
+
+        have hPathT₀_y_is_0 : (hPath t₀).2 = 0 := by
+          simpa using congrArg Prod.snd hZ_eq
+
+        exact hPathT₀_y_is_0
+
+  have epsDeltaBoundAtT₀ : ∃ δ > 0, ∀ t : unitInterval, dist t t₀ < δ →
     dist (hPath t) (hPath t₀) < 1/2 := by
-    -- Start with the Tendsto statement from continuity
-    have h_tendsto := hPath.continuousAt t₀
-    -- Convert to the "forall epsilon eventually" form
-    have h_tendsto_eventually := Metric.tendsto_nhds.mp h_tendsto
-    -- Specialize for epsilon = 1/2
-    have h_eventually : ∀ᶠ (t : unitInterval) in 𝓝 t₀, dist (hPath t) (hPath t₀) < 1/2 := by
-      specialize h_tendsto_eventually (1/2)
-      apply h_tendsto_eventually
-      norm_num -- Prove 1/2 > 0
-    -- Convert the "eventually" form to the "exists delta" form
-    exact Metric.eventually_nhds_iff.mp h_eventually
+    have hTendstoEventually := Metric.tendsto_nhds.mp (hPath.continuousAt t₀)
+    have hEventually : ∀ᶠ (t : unitInterval) in 𝓝 t₀, dist (hPath t) (hPath t₀) < 1/2 := by
+      specialize hTendstoEventually (1/2)
+      apply hTendstoEventually
+      norm_num
+    exact Metric.eventually_nhds_iff.mp hEventually
 
-    -- (hPath.continuousAt t₀).exists_delta 1/2 (by norm_num)
-    -- By the definition of t0 as an infimum, for this same δ there is a t1 with t0 < t1 < t0 + δ
-  obtain ⟨δ , hδ⟩ := continuityBound
-  have t₁Grt₀ : ∃ t₁:unitInterval, t₀ < t₁ ∧ dist t₁ t₀ < δ := by
-   sorry
-  --such that a := x(p(t1)) > 0
+  obtain ⟨δ , hδ, ht⟩ := epsDeltaBoundAtT₀
+   -- let t₁ in the reange of
+   -- create a real that is in unitinterval and then used (since unitinvterval doen ahave )
+
+  have t₁Let₀ : ∃ t₁:unitInterval, t₁ > t₀  ∧ dist t₁ t₀ < δ := by
+    let s0 := (t₀ : ℝ)
+    let s1 := min (s0 + δ/2) 1
+    have h : 0 ≤ s1 := sorry
+    have h': s1 ≤ 1 := sorry
+    use ⟨s1, h, h'⟩
+    constructor
+    · simp only [gt_iff_lt, ← Subtype.coe_lt_coe, Subtype.coe_mk]
+      sorry
+    · sorry
+  -- have t₁Get₀ : ∃ t₁:unitInterval, t₁ > t₀  ∧ dist t₁ t₀ < δ := by
+  --   have t₀DeltainUnitinterval
+  --   use (((t₀ : ℝ) + (δ/2)) : unitInterval) -- not sure
+  --   sorry
+
+  obtain ⟨t₁, ht₁⟩ := t₁Let₀
+  -- PROOF:  such that a := x(p(t1)) > 0
+  let a :=  xcoordPath t₁
+  have aGr0  : a > 0 := by sorry
+
+  -- PROOF: The image x(p([t0, t1])) is connected
+  let intervalT₀T₁ := Set.Icc t₁ t₀
+
+  have xcoordPathOfT₀T₁Conn:
+      IsConnected ( xcoordPath '' intervalT₀T₁) := by
+    have hConn : IsConnected intervalT₀T₁ := by
+      unfold intervalT₀T₁
+      sorry
+    have hCont : ContinuousOn xcoordPath intervalT₀T₁ := by sorry
+
+    exact hConn.image _ hCont
+
+
+  -- PROOF: and contains 0 = x(p(t₀)) and a = x(p(t₁))
+  let zero :=  xcoordPath t₀
+
+  have leftEnd :
+      zero ∈ ( xcoordPath '' intervalT₀T₁) := by sorry
+
+  have rightEnd :
+      a ∈ ( xcoordPath '' intervalT₀T₁) := by sorry
+
+  -- PROOF: and every connected subset of R is an interval, so
+  -- (3.3) [0, a] ⊂ x(p([t0, t1])).
+  let intervalAZero := Set.Icc a zero
+  have intervalAZeroIn : intervalAZero ⊆ (xcoordPath '' intervalT₀T₁) := by sorry
+
+
+  -- PROOF: This contradicts continuity of t 7→ x(p(t)) at t0 by the picture above, because the graph of
+  -- sin(1/x) is oscillating in and out of the red circle, so the x-values on S inside the circle do
+  -- not contain a whole interval like [0, a]. To turn this visual idea into a strict logical argument
+  -- we look at where the peaks and troughs occur in S.
+
+-- PROOF: Since sin(θ) = 1 if and only if θ = (4k + 1) π/2
+-- and sin(θ) = −1 if and only if θ = (4k −1)π/2,where k ∈ Z,
+-- we have (x,sin(1/x)) = (x, 1)
+-- if x = 2/((4k + 1)π)
+-- and (x,sin(1/x)) = (x, −1) if x = 2/((4k − 1)π) for k ∈ Z.
+-- not necessarily -1
+
+-- PROOF: Such x-values get arbitrarily close to 0 for large k,
+
+
+-- PROOF:so there are such x-values of both kinds in [0, a].
+
+-- PROOF:Therefore by (3.3) we get p(t0) = (∗, 1) and
+-- PROOF:T p(t00) = (∗, −1) for some t0 and t00 in [t0, t1] ⊂ [t0, t0 + δ).
+
+-- PROOF:TBut ||p(t0)|| = ||(∗, 1)|| > 1/2 and
+-- ||p(t00)|| = ||(∗, −1)|| > 1/2, which both contradict (3.2).
+
   sorry
-
 
 -- def clsOfS := closure S
 
@@ -186,3 +283,4 @@ lemma TisNotPathConn : ¬ (IsPathConnected T)  := by
 --   · exact SisConnected
 --   · tauto_set
 --   · exact TsubClsOfS
+
