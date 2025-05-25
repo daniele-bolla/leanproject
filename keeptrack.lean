@@ -38,28 +38,9 @@ noncomputable instance : CompleteLattice unitInterval := by infer_instance
     · unfold w_x PosReal Set.Ioi
       norm_num
     · trivial
+-- projection inequalities
+lemma norm_ge_abs_component_fst {a b : ℝ} : ‖(a, b)‖ ≥ |a| := by sorry
 
-/-- The Euclidean norm of a vector in ℝ² is greater than or equal to the absolute value of its first component -/
-theorem norm_ge_abs_component_fst {a b : ℝ} : ‖(a, b)‖ ≥ |a| := by
-  -- Definition of norm squared in ℝ²
-  have norm_squared : ‖(a, b)‖^2 = a^2 + b^2 := by rfl
-
-  -- Since b² ≥ 0, we have a² + b² ≥ a²
-  have sum_ge_component : a^2 + b^2 ≥ a^2 := by
-    apply add_le_add_left
-    exact sq_nonneg b
-
-  -- Apply square root to both sides
-  have sqrt_ineq : ‖(a, b)‖ ≥ sqrt(a^2) := by
-    rw [←norm_squared]
-    apply Real.sqrt_le_sqrt
-    · exact sum_ge_component
-
-  -- Use sqrt(x²) = |x|
-  rw [Real.sqrt_sq_eq_abs] at sqrt_ineq
-  exact sqrt_ineq
-
-/-- The Euclidean norm of a vector in ℝ² is greater than or equal to the absolute value of its second component -/
 lemma norm_ge_abs_component_snd {a b : ℝ} : ‖(a, b)‖ ≥ |b| := by sorry
 
 lemma xcoordPathContinuous (hPath : unitInterval → ℝ×ℝ) (hCont : Continuous hPath) : Continuous (fun t => (hPath t).1) :=
@@ -399,83 +380,84 @@ lemma TisNotPathConnSup : ¬ (IsPathConnected T)  := by
   · exact h_PathContradiction
 
 
+-- T is Connected
 
--- def clsOfS := closure S
+def clsOfS := closure S
 
--- lemma TsubClsOfS : T ⊆ clsOfS := by
---   intro x hx
---   cases hx with
---   | inl hxS => exact subset_closure hxS
---   | inr hxZ =>
---       rw [hxZ]
---       let f :  ℕ →  ℝ × ℝ := fun n => ((n * Real.pi)⁻¹, 0)
---       have hnMulpiAtTop : Tendsto (fun n : ℕ => n* Real.pi) atTop atTop := by
---         apply Filter.Tendsto.atTop_mul_const'
---         · exact Real.pi_pos
---         · exact tendsto_natCast_atTop_atTop
---       have hf : Tendsto f atTop (𝓝 (0, 0))  := by
---         apply Filter.Tendsto.prodMk_nhds
---         · exact tendsto_inv_atTop_zero.comp hnMulpiAtTop
---         · exact tendsto_const_nhds
---       have hf' : ∀ᶠ n in atTop, f n ∈ S := by
---         have hfInS : ∀ n : ℕ, 0 < n → f n ∈ S := by
---           intro n hn
---           use (n * Real.pi)⁻¹
---           constructor
---           unfold PosReal
---           rw [Set.mem_Ioi]
---           · apply inv_pos.mpr
---             apply mul_pos
---             · exact Nat.cast_pos.mpr hn
---             · exact Real.pi_pos
---           · unfold f
---             calc sinCurve (n * Real.pi)⁻¹ =
---               ((n * Real.pi)⁻¹, Real.sin ((n * Real.pi)⁻¹)⁻¹) := by rfl
---               _ = ((n * Real.pi)⁻¹, Real.sin (n * Real.pi)) := by
---                   congr
---                   simp only [inv_inv]
---               _ = ((n * Real.pi)⁻¹,0) := by
---                 congr
---                 apply Real.sin_nat_mul_pi
---         filter_upwards [eventually_gt_atTop 0] using hfInS
---       apply mem_closure_of_tendsto hf hf'
+lemma TsubClsOfS : T ⊆ clsOfS := by
+  intro x hx
+  cases hx with
+  | inl hxS => exact subset_closure hxS
+  | inr hxZ =>
+      rw [hxZ]
+      let f :  ℕ →  ℝ × ℝ := fun n => ((n * Real.pi)⁻¹, 0)
+      have hnMulpiAtTop : Tendsto (fun n : ℕ => n* Real.pi) atTop atTop := by
+        apply Filter.Tendsto.atTop_mul_const'
+        · exact Real.pi_pos
+        · exact tendsto_natCast_atTop_atTop
+      have hf : Tendsto f atTop (𝓝 (0, 0))  := by
+        apply Filter.Tendsto.prodMk_nhds
+        · exact tendsto_inv_atTop_zero.comp hnMulpiAtTop
+        · exact tendsto_const_nhds
+      have hf' : ∀ᶠ n in atTop, f n ∈ S := by
+        have hfInS : ∀ n : ℕ, 0 < n → f n ∈ S := by
+          intro n hn
+          use (n * Real.pi)⁻¹
+          constructor
+          unfold PosReal
+          rw [Set.mem_Ioi]
+          · apply inv_pos.mpr
+            apply mul_pos
+            · exact Nat.cast_pos.mpr hn
+            · exact Real.pi_pos
+          · unfold f
+            calc sinCurve (n * Real.pi)⁻¹ =
+              ((n * Real.pi)⁻¹, Real.sin ((n * Real.pi)⁻¹)⁻¹) := by rfl
+              _ = ((n * Real.pi)⁻¹, Real.sin (n * Real.pi)) := by
+                  congr
+                  simp only [inv_inv]
+              _ = ((n * Real.pi)⁻¹,0) := by
+                congr
+                apply Real.sin_nat_mul_pi
+        filter_upwards [eventually_gt_atTop 0] using hfInS
+      apply mem_closure_of_tendsto hf hf'
 
 
 
--- -- SineCurve is continuous and path-connected
--- lemma invFunIsContinuousOnPosReal : ContinuousOn (fun x : ℝ => x⁻¹) (PosReal) := by
---   apply ContinuousOn.inv₀
---   · exact continuous_id.continuousOn
---   · intro x hxIsInIoi
---     exact ne_of_gt hxIsInIoi
+-- SineCurve is continuous and path-connected
+lemma invFunIsContinuousOnPosReal : ContinuousOn (fun x : ℝ => x⁻¹) (PosReal) := by
+  apply ContinuousOn.inv₀
+  · exact continuous_id.continuousOn
+  · intro x hxIsInIoi
+    exact ne_of_gt hxIsInIoi
 
--- lemma sinWithinvFunIsContinuousOnPosReal : ContinuousOn (fun x : ℝ => Real.sin (x⁻¹)) (PosReal) := by
---   apply Real.continuous_sin.comp_continuousOn
---   · exact invFunIsContinuousOnPosReal
+lemma sinWithinvFunIsContinuousOnPosReal : ContinuousOn (fun x : ℝ => Real.sin (x⁻¹)) (PosReal) := by
+  apply Real.continuous_sin.comp_continuousOn
+  · exact invFunIsContinuousOnPosReal
 
--- lemma topoSinCurveIsContinuousOnPosReal : ContinuousOn (sinCurve) (PosReal) :=
---   ContinuousOn.prod_mk continuous_id.continuousOn sinWithinvFunIsContinuousOnPosReal
+lemma topoSinCurveIsContinuousOnPosReal : ContinuousOn (sinCurve) (PosReal) :=
+  ContinuousOn.prodMk continuous_id.continuousOn sinWithinvFunIsContinuousOnPosReal
 
--- lemma posIntervalIsPathConnected : IsPathConnected (PosReal) := by
---   apply Convex.isPathConnected
---   · exact convex_Ioi 0
---   · use 1
---     unfold PosReal
---     simp
+lemma posIntervalIsPathConnected : IsPathConnected (PosReal) := by
+  apply Convex.isPathConnected
+  · exact convex_Ioi 0
+  · use 1
+    unfold PosReal
+    simp
 
--- lemma SIsPathConn : IsPathConnected S := by
---   apply IsPathConnected.image'
---   · exact posIntervalIsPathConnected
---   · exact topoSinCurveIsContinuousOnPosReal
+lemma SIsPathConn : IsPathConnected S := by
+  apply IsPathConnected.image'
+  · exact posIntervalIsPathConnected
+  · exact topoSinCurveIsContinuousOnPosReal
 
--- lemma SisConnected : IsConnected S := SIsPathConn.isConnected
+lemma SisConnected : IsConnected S := SIsPathConn.isConnected
 
--- lemma ZisConnected : IsConnected Z := isConnected_singleton
+lemma ZisConnected : IsConnected Z := isConnected_singleton
 
--- -- T is connected
+-- T is connected
 
--- theorem TisConnected : IsConnected T := by
---   apply IsConnected.subset_closure
---   · exact SisConnected
---   · tauto_set
---   · exact TsubClsOfS
+theorem TisConnected : IsConnected T := by
+  apply IsConnected.subset_closure
+  · exact SisConnected
+  · tauto_set
+  · exact TsubClsOfS
