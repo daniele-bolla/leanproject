@@ -47,7 +47,7 @@ lemma xcoordPathContinuous (hPath : unitInterval → ℝ×ℝ) (hCont : Continuo
   continuous_fst.comp hCont
 
 noncomputable def x_SeqPosPeak := fun (k : ℕ) => 2/((4 * k + 1) * Real.pi) -- maybe i can directly define it in [0,a] = intervalAZero
-lemma h_SinPosPeak : ∀ k : ℕ, k ≥ 1 → Real.sin ((x_SeqPosPeak k)⁻¹) = 1 := by -- i don't need to show this for each x-values but only in the contraddicion
+lemma h_SinPosPeak : ∀ k : ℕ, k ≥ 1 → Real.sin ((x_SeqPosPeak k)⁻¹) = 1 := by -- i don't need to show this k : ℕ but only in the contraddicion
   intro k hk
   calc Real.sin ((x_SeqPosPeak k)⁻¹) = Real.sin (((4 * k + 1) * Real.pi)/2) := by
         unfold x_SeqPosPeak
@@ -77,8 +77,7 @@ lemma xSeq_tendsto_zero : Tendsto x_SeqPosPeak atTop (𝓝 0) := by
   sorry
 
 lemma TisNotPathConnSup : ¬ (IsPathConnected T)  := by
-  -- Assume we hava a path from z= (0, 0) to w=(x, sin(1/x))
-  -- for some x > 0
+  -- Assume we hava a path from z= (0, 0) to w=(1/2, sin(1/2))
   intro hPathConn
   apply IsPathConnected.joinedIn at hPathConn
   specialize hPathConn z hz w hw
@@ -91,7 +90,6 @@ lemma TisNotPathConnSup : ¬ (IsPathConnected T)  := by
     apply Continuous.comp
     · exact continuous_fst
     · exact hPath.continuous
-
 
   -- let t₀ the last time the path is on the y-axis
   let A : Set unitInterval := { t | (hPath t).1 = 0 }
@@ -235,8 +233,16 @@ lemma TisNotPathConnSup : ¬ (IsPathConnected T)  := by
   have ha : a > 0 := by
     unfold a xcoordPath
     have h_pathT₁ : hPath t₁ ∈ S := by
+      cases hPathConn.somePath_mem t₁ with
+      | inl hS => exact hS
+      | inr hZ =>
+          exfalso
+          have x_coord_eq_zero : (hPath t₁).1 = 0 := by rw [hZ];
+          have h_pos : (hPath t₁).1 > 0 := by
 
-      sorry
+           sorry
+          linarith
+
     have h_pathT₁_x_pos : (hPath t₁).1 > 0 := by
       obtain ⟨x, hxI, hx_eq⟩ := h_pathT₁
       dsimp [PosReal] at hxI
@@ -293,10 +299,9 @@ lemma TisNotPathConnSup : ¬ (IsPathConnected T)  := by
   -- x_SeqPosPeak converges to 0 as k → ∞
   -- thus there are some indicies i for wich x_SeqPosPeak i is in [0, a]
 
-  have existsSeqInInterval : ∃ i : ℕ, x_SeqPosPeak i ∈ intervalAZero := by
+  have existsSeqInInterval :  ∃ i : ℕ, i ≥ 1 ∧ x_SeqPosPeak i ∈ intervalAZero  := by
     have h_conv := Metric.tendsto_nhds.mp xSeq_tendsto_zero (a/2) (by positivity)
     obtain ⟨N, hN⟩ := Filter.eventually_iff_exists_mem.mp h_conv
-
     -- obtain ⟨i₀, hi₀⟩ := hN.1
     sorry
 
@@ -304,8 +309,7 @@ lemma TisNotPathConnSup : ¬ (IsPathConnected T)  := by
   -- 1. hPath(s₁) = (*,1)
   have h_Path_s₁ :  ∃ s₁ ∈ intervalT₀T₁, (hPath s₁).2 = (1) := by
 
-    obtain ⟨i, hi⟩ := existsSeqInInterval
-    have i_ge_one : i ≥ 1 := by sorry
+    obtain ⟨i, ⟨ hige ,hi⟩ ⟩ := existsSeqInInterval
     obtain ⟨s₁, hs₁⟩ := intervalAZeroSubOfT₀T₁Xcoord hi
     use s₁
     constructor
@@ -313,7 +317,7 @@ lemma TisNotPathConnSup : ¬ (IsPathConnected T)  := by
     · have : (hPath s₁).2 = Real.sin ((x_SeqPosPeak i)⁻¹) := by
         sorry
       rw [this]
-      exact h_SinPosPeak i i_ge_one
+      exact h_SinPosPeak i hige
 
 
   have h_PathContradiction : False := by
@@ -350,9 +354,19 @@ lemma TisNotPathConnSup : ¬ (IsPathConnected T)  := by
       simp only [Set.mem_Icc] at hx₁
       have hx₁Delta: ∀ t ∈ intervalT₀T₁, dist t t₀ < δ := by
         intro t ht
+        unfold intervalT₀T₁ at ht
         simp only [Set.mem_Icc] at ht
-         --apply ht.2 --not sure
-        sorry
+
+        -- First, let's note that dist t₀ t₁ = dist t₁ t₀ (distance is symmetric)
+        have dist_symm : dist t₀ t₁ = dist t₁ t₀ := dist_comm t₀ t₁
+
+        -- Assume we can prove dist t t₀ ≤ dist t₁ t₀ (note: ≤ not <)
+        have dist_t_t₀_le_dist_t₁_t₀ : |(t : ℝ) - (t₀ : ℝ)| ≤ |(t₁ : ℝ) - (t₀ : ℝ)| := by sorry
+
+        -- Now use transitivity with ht₁.2
+        calc dist t t₀ ≤ dist t₁ t₀ := dist_t_t₀_le_dist_t₁_t₀
+            _ = dist t₀ t₁ := by rw [dist_symm]
+            _ < δ := ht₁.2
       apply hx₁Delta
       · exact hx₁
 
