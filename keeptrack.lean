@@ -269,8 +269,6 @@ lemma TisNotPathConnSup : ¬ (IsPathConnected T)  := by
       exact (Set.mem_Ioi.mp hxI)
     exact h_pathT₁_x_pos
 
-
-
   --The image x(p([t0, t1])) is connected
   let intervalT₀T₁ := Set.Icc t₀ t₁
 
@@ -340,9 +338,14 @@ lemma TisNotPathConnSup : ¬ (IsPathConnected T)  := by
       · unfold zero
         rw [h_xcoordPathAtZeroEqZero]
         exact xSeq_pos j
-      · have h_pos : x_SeqPosPeak j ≤ a := by sorry
+      · have h_pos : x_SeqPosPeak j ≤ a := by
+          have hj : j ≥ N := le_max_right 1 N
+          have h_dist : dist (x_SeqPosPeak j) 0 < a / 2 := hN j hj
+          rw [Real.dist_eq] at h_dist
+          have h_nonneg : 0 ≤ x_SeqPosPeak j := xSeq_pos j
+          rw [sub_zero, abs_of_nonneg h_nonneg] at h_dist
+          linarith
         exact h_pos
-    -- i ≥ 1
 
   -- Now we can show that there exists s₁ in [t₀, t₁] ⊆ [t₀, t₀ + δ) such that:
   -- 1. hPath(s₁) = (*,1)
@@ -354,23 +357,28 @@ lemma TisNotPathConnSup : ¬ (IsPathConnected T)  := by
     constructor
     · exact hs₁.1
     · have : (hPath s₁).2 = Real.sin ((x_SeqPosPeak i)⁻¹) := by
-        unfold x_SeqPosPeak
         have h : (hPath s₁) ∈ S := by
-          cases hPathConn.somePath_mem s₁ with
+          have h_in_T : hPath s₁ ∈ T := hPathConn.somePath_mem s₁
+          cases h_in_T with
                 | inl hS => exact hS
                 | inr hZ =>
                     exfalso
                     have h_eq_path : hPath s₁ = (0, 0) := by
                       simpa using hZ
                     have h_eq_sin : Real.sin ((x_SeqPosPeak i)⁻¹) = 0 := by sorry
-                    have h_eq_sin' : Real.sin ((x_SeqPosPeak i)⁻¹) > 0 := by sorry
-                    exact not_le_of_gt h_eq_sin' (le_of_eq h_eq_sin)
+                    have h_eq_sin' : Real.sin ((x_SeqPosPeak i)⁻¹) = 1 := by exact h_SinPosPeak i hige
+                    have h_eq_sin'' : Real.sin ((x_SeqPosPeak i)⁻¹) > 0 := by linarith
+                    exact not_le_of_gt (by linarith [h_eq_sin']) (le_of_eq h_eq_sin)
 
         obtain ⟨xPosreal, hxInPosReal, h_eq_path⟩ := h
 
         dsimp [sinCurve] at h_eq_path
-
-        sorry
+        have xIsSeq: xPosreal = x_SeqPosPeak i := by
+          have h_eq_x : (hPath s₁).1 = xPosreal := (congrArg Prod.fst h_eq_path).symm
+          have h_eq_path_seq : (hPath s₁).1 = x_SeqPosPeak i := hs₁.2
+          exact Eq.trans h_eq_x.symm h_eq_path_seq
+        rw [xIsSeq] at h_eq_path
+        rw [← h_eq_path]
       rw [this]
       exact h_SinPosPeak i hige
 
