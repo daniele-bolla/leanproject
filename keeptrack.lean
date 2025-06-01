@@ -5,9 +5,6 @@ import Mathlib.Analysis.InnerProductSpace.PiL2
 
 open Topology Filter Set Order
 
-def IsInterval (s : Set ℝ) : Prop :=
-  ∀ {x y : ℝ}, x ∈ s → y ∈ s → ∀ z, x ≤ z → z ≤ y → z ∈ s
-
 def PosReal := Set.Ioi (0 : ℝ)
 noncomputable def sinCurve := fun x ↦ (x, Real.sin (x⁻¹))
 
@@ -222,13 +219,34 @@ lemma TisNotPathConnSup : ¬ (IsPathConnected T)  := by
         rw [w_x_path] at x_eq_zero
         exact ne_of_gt w_x_pos x_eq_zero
     have dist_case : dist t₀ ⟨s1, hs1, h'⟩ < δ := by
-
       rw [Subtype.dist_eq]
-      -- simp_all [z, w, s1, w_x, hPath, xcoordPath, A, t₀, s0]
+      simp only [dist_comm, Real.dist_eq]
 
-      --refine Metric.mem_ball.mp ?_
-      simp only [Metric.mem_ball, A, s0, s1, xcoordPath, hPath, t₀]
-      sorry
+      -- We need to show |s1 - s0| < δ
+      -- Since s1 = min (s0 + δ/2) 1, we have s1 ≤ s0 + δ/2
+      have h_le : s1 ≤ s0 + δ/2 := min_le_left _ _
+
+      -- Also, s1 ≥ s0 because if s0 + δ/2 ≤ 1, then s1 = s0 + δ/2 ≥ s0
+      -- and if s0 + δ/2 > 1, then s1 = 1 > s0 (since s0 < 1)
+      have h_ge : s1 ≥ s0 := by
+        by_cases h : s0 + δ/2 ≤ 1
+        · -- Case: s1 = s0 + δ/2
+          have : s1 = s0 + δ/2 := min_eq_left h
+          rw [this]
+          linarith
+        · -- Case: s1 = 1
+          push_neg at h
+          have : s1 = 1 := min_eq_right (le_of_lt h)
+          rw [this]
+          exact le_of_lt t₀_lt_one
+
+      -- Therefore 0 ≤ s1 - s0 ≤ δ/2
+      have h_diff : s1 - s0 ≤ δ/2 := by linarith
+      have h_nonneg : 0 ≤ s1 - s0 := by linarith
+
+      -- So |s1 - s0| = s1 - s0 ≤ δ/2 < δ
+      rw [← abs_neg, neg_sub, abs_of_nonneg h_nonneg]
+      linarith
     constructor
     · simp only [gt_iff_lt, s1,s0, hPath, xcoordPath,← Subtype.coe_lt_coe, Subtype.coe_mk]
       apply lt_min
@@ -249,18 +267,24 @@ lemma TisNotPathConnSup : ¬ (IsPathConnected T)  := by
       | inr hZ =>
           exfalso
           have x_coord_eq_zero : (hPath t₁).1 = 0 := by rw [hZ];
-          have h_pathTGeT₀ : ∀ (t : unitInterval), (t : ℝ) > (t₀ : ℝ) → (hPath t).1 > (hPath t₀).1 := by
-            unfold t₀ A
-            intro t ht_gt_t₀
+          -- Since (hPath t₁).1 = 0, we have t₁ ∈ A
+          have ht₁_in_A : t₁ ∈ A := x_coord_eq_zero
 
-            -- We know (hPath t₀).1 = 0
-            rw [h_xcoordPathAtZeroEqZero.symm]
+          -- Since t₀ = sSup A, we need A to be bounded above
+          have h_bdd : BddAbove A := by
+            use 1
+            intro s hs
+            exact unitInterval.le_one s
 
-            -- Need to show (hPath t).1 > 0
-            -- By contradiction: suppose (hPath t).1 ≤ 0
-            by_contra h_not_pos
-            push_neg at h_not_pos
-            sorry
+          -- Since t₁ ∈ A and t₀ = sSup A, we have t₁ ≤ t₀
+          have h_le : t₁ ≤ t₀ := le_csSup h_bdd ht₁_in_A
+
+          -- Convert to real inequality
+          have h_le_real : (t₁ : ℝ) ≤ (t₀ : ℝ) := Subtype.coe_le_coe.mpr h_le
+
+          -- But ht₁.1 says t₁ > t₀
+          have : ¬(t₁ > t₀) := not_lt_of_ge h_le
+          exact this ht₁.1
 
     have h_pathT₁_x_pos : (hPath t₁).1 > 0 := by
       obtain ⟨x, hxI, hx_eq⟩ := h_pathT₁
@@ -349,7 +373,7 @@ lemma TisNotPathConnSup : ¬ (IsPathConnected T)  := by
 
   -- Now we can show that there exists s₁ in [t₀, t₁] ⊆ [t₀, t₀ + δ) such that:
   -- 1. hPath(s₁) = (*,1)
-  have h_Path_s₁ :  ∃ s₁ ∈ intervalT₀T₁, (hPath s₁).2 = (1) := by
+  have h_Path_s₁ :  ∃ s₁ ∈ intervalT₀T₁, (hPath s₁).2 = 1 := by
 
     obtain ⟨i, ⟨ hige ,hi⟩ ⟩ := existsSeqInInterval
     obtain ⟨s₁, hs₁⟩ := intervalAZeroSubOfT₀T₁Xcoord hi
@@ -362,13 +386,20 @@ lemma TisNotPathConnSup : ¬ (IsPathConnected T)  := by
           cases h_in_T with
                 | inl hS => exact hS
                 | inr hZ =>
-                    exfalso
-                    have h_eq_path : hPath s₁ = (0, 0) := by
-                      simpa using hZ
-                    have h_eq_sin : Real.sin ((x_SeqPosPeak i)⁻¹) = 0 := by sorry
-                    have h_eq_sin' : Real.sin ((x_SeqPosPeak i)⁻¹) = 1 := by exact h_SinPosPeak i hige
-                    have h_eq_sin'' : Real.sin ((x_SeqPosPeak i)⁻¹) > 0 := by linarith
-                    exact not_le_of_gt (by linarith [h_eq_sin']) (le_of_eq h_eq_sin)
+                  exfalso
+                  have h_eq_path : hPath s₁ = (0, 0) := by simpa using hZ
+                  have h_x_zero : (hPath s₁).1 = 0 := by rw [h_eq_path];
+                  have h_x_eq_seq : (hPath s₁).1 = x_SeqPosPeak i := hs₁.2
+                  have h_seq_zero : x_SeqPosPeak i = 0 := by rw [← h_x_eq_seq, h_x_zero]
+
+                  -- Now use h_SinPosPeak to get sin(0⁻¹) = 1
+                  have h_sin_one : Real.sin (x_SeqPosPeak i)⁻¹ = 1 := h_SinPosPeak i hige
+
+                  -- But x_SeqPosPeak i = 0, so this is sin(0⁻¹) = 1
+                  rw [h_seq_zero] at h_sin_one
+
+                  -- 0⁻¹ is undefined (or 0 in Lean), and sin(0) ≠ 1
+                  simp at h_sin_one
 
         obtain ⟨xPosreal, hxInPosReal, h_eq_path⟩ := h
 
@@ -387,52 +418,6 @@ lemma TisNotPathConnSup : ¬ (IsPathConnected T)  := by
 
     obtain ⟨x₁, hx₁, hPathx₁⟩ := h_Path_s₁
 
-    -- let s0 := (t₀ : ℝ ) -- t₀ is in unitInterval
-    -- have h_le_one : (t₀ : ℝ) + δ ≤ 1 := by
-    --   -- Proof that t₀ + δ ≤ 1 goes here
-    --   -- For example, if you know δ ≤ 1 - t₀
-    --   sorry
-
-    -- let t₀Delta : unitInterval := ⟨(t₀ : ℝ) + δ, by {
-    --   constructor
-    --   · exact add_nonneg (unitInterval.nonneg t₀) (le_of_lt hδ)
-    --   · exact h_le_one
-    -- }⟩
-
-    -- have intervalT₀T₁InDelta : intervalT₀T₁ ⊆  Set.Ico t₀ t₀Delta := by
-    --   intro x hx
-    --   simp only [intervalT₀T₁, Set.mem_Icc] at hx
-    --   simp only [Set.mem_Ico]
-    --   constructor
-    --   · exact hx.1
-    --   · apply lt_of_le_of_lt hx.2
-    --     simp only [← Subtype.coe_lt_coe, Subtype.coe_mk]
-    --     apply lt_of_lt_of_le
-    --     · exact (lt_add_iff_pos_right _).mpr hδ
-    --     · Existt₁Get₀.2
-
-    -- have x₁_close_to_t₀ : dist x₁ t₀ < δ := by
-    --   unfold intervalT₀T₁ at hx₁
-    --   simp only [Set.mem_Icc] at hx₁
-    --   have hx₁Delta: ∀ t ∈ intervalT₀T₁, dist t t₀ < δ := by
-    --     intro t ht
-    --     unfold intervalT₀T₁ at ht
-    --     simp only [Set.mem_Icc] at ht
-
-    --     -- First, let's note that dist t₀ t₁ = dist t₁ t₀ (distance is symmetric)
-    --     have dist_symm : dist t₀ t₁ = dist t₁ t₀ := dist_comm t₀ t₁
-
-    --     -- Assume we can prove dist t t₀ ≤ dist t₁ t₀ (note: ≤ not <)
-    --     have dist_t_t₀_le_dist_t₁_t₀ : ∀ (t : intervalT₀T₁), |(t : ℝ) - (t₀ : ℝ)| ≤ |(t₁ : ℝ) - (t₀ : ℝ)| := by
-
-    --      sorry
-
-    --     -- Now use transitivity with ht₁.2
-    --     calc dist t t₀ ≤ dist t₁ t₀ := dist_t_t₀_le_dist_t₁_t₀.2
-    --         _ = dist t₀ t₁ := by rw [dist_symm]
-    --         _ < δ := ht₁.2
-    --   apply hx₁Delta
-    --   · exact hx₁
     have x₁_close_to_t₀ : dist x₁ t₀ < δ := by
       unfold intervalT₀T₁ at hx₁
       simp only [Set.mem_Icc] at hx₁
@@ -488,80 +473,80 @@ lemma TisNotPathConnSup : ¬ (IsPathConnected T)  := by
 
 -- T is Connected
 
--- def clsOfS := closure S
+def clsOfS := closure S
 
--- lemma TsubClsOfS : T ⊆ clsOfS := by
---   intro x hx
---   cases hx with
---   | inl hxS => exact subset_closure hxS
---   | inr hxZ =>
---       rw [hxZ]
---       let f :  ℕ →  ℝ × ℝ := fun n => ((n * Real.pi)⁻¹, 0)
---       have hnMulpiAtTop : Tendsto (fun n : ℕ => n* Real.pi) atTop atTop := by
---         apply Filter.Tendsto.atTop_mul_const'
---         · exact Real.pi_pos
---         · exact tendsto_natCast_atTop_atTop
---       have hf : Tendsto f atTop (𝓝 (0, 0))  := by
---         apply Filter.Tendsto.prodMk_nhds
---         · exact tendsto_inv_atTop_zero.comp hnMulpiAtTop
---         · exact tendsto_const_nhds
---       have hf' : ∀ᶠ n in atTop, f n ∈ S := by
---         have hfInS : ∀ n : ℕ, 0 < n → f n ∈ S := by
---           intro n hn
---           use (n * Real.pi)⁻¹
---           constructor
---           unfold PosReal
---           rw [Set.mem_Ioi]
---           · apply inv_pos.mpr
---             apply mul_pos
---             · exact Nat.cast_pos.mpr hn
---             · exact Real.pi_pos
---           · unfold f
---             calc sinCurve (n * Real.pi)⁻¹ =
---               ((n * Real.pi)⁻¹, Real.sin ((n * Real.pi)⁻¹)⁻¹) := by rfl
---               _ = ((n * Real.pi)⁻¹, Real.sin (n * Real.pi)) := by
---                   congr
---                   simp only [inv_inv]
---               _ = ((n * Real.pi)⁻¹,0) := by
---                 congr
---                 apply Real.sin_nat_mul_pi
---         filter_upwards [eventually_gt_atTop 0] using hfInS
---       apply mem_closure_of_tendsto hf hf'
+lemma TsubClsOfS : T ⊆ clsOfS := by
+  intro x hx
+  cases hx with
+  | inl hxS => exact subset_closure hxS
+  | inr hxZ =>
+      rw [hxZ]
+      let f :  ℕ →  ℝ × ℝ := fun n => ((n * Real.pi)⁻¹, 0)
+      have hnMulpiAtTop : Tendsto (fun n : ℕ => n* Real.pi) atTop atTop := by
+        apply Filter.Tendsto.atTop_mul_const'
+        · exact Real.pi_pos
+        · exact tendsto_natCast_atTop_atTop
+      have hf : Tendsto f atTop (𝓝 (0, 0))  := by
+        apply Filter.Tendsto.prodMk_nhds
+        · exact tendsto_inv_atTop_zero.comp hnMulpiAtTop
+        · exact tendsto_const_nhds
+      have hf' : ∀ᶠ n in atTop, f n ∈ S := by
+        have hfInS : ∀ n : ℕ, 0 < n → f n ∈ S := by
+          intro n hn
+          use (n * Real.pi)⁻¹
+          constructor
+          unfold PosReal
+          rw [Set.mem_Ioi]
+          · apply inv_pos.mpr
+            apply mul_pos
+            · exact Nat.cast_pos.mpr hn
+            · exact Real.pi_pos
+          · unfold f
+            calc sinCurve (n * Real.pi)⁻¹ =
+              ((n * Real.pi)⁻¹, Real.sin ((n * Real.pi)⁻¹)⁻¹) := by rfl
+              _ = ((n * Real.pi)⁻¹, Real.sin (n * Real.pi)) := by
+                  congr
+                  simp only [inv_inv]
+              _ = ((n * Real.pi)⁻¹,0) := by
+                congr
+                apply Real.sin_nat_mul_pi
+        filter_upwards [eventually_gt_atTop 0] using hfInS
+      apply mem_closure_of_tendsto hf hf'
 
--- -- SineCurve is continuous and path-connected
--- lemma invFunIsContinuousOnPosReal : ContinuousOn (fun x : ℝ => x⁻¹) (PosReal) := by
---   apply ContinuousOn.inv₀
---   · exact continuous_id.continuousOn
---   · intro x hxIsInIoi
---     exact ne_of_gt hxIsInIoi
+-- SineCurve is continuous and path-connected
+lemma invFunIsContinuousOnPosReal : ContinuousOn (fun x : ℝ => x⁻¹) (PosReal) := by
+  apply ContinuousOn.inv₀
+  · exact continuous_id.continuousOn
+  · intro x hxIsInIoi
+    exact ne_of_gt hxIsInIoi
 
--- lemma sinWithinvFunIsContinuousOnPosReal : ContinuousOn (fun x : ℝ => Real.sin (x⁻¹)) (PosReal) := by
---   apply Real.continuous_sin.comp_continuousOn
---   · exact invFunIsContinuousOnPosReal
+lemma sinWithinvFunIsContinuousOnPosReal : ContinuousOn (fun x : ℝ => Real.sin (x⁻¹)) (PosReal) := by
+  apply Real.continuous_sin.comp_continuousOn
+  · exact invFunIsContinuousOnPosReal
 
--- lemma topoSinCurveIsContinuousOnPosReal : ContinuousOn (sinCurve) (PosReal) :=
---   ContinuousOn.prodMk continuous_id.continuousOn sinWithinvFunIsContinuousOnPosReal
+lemma topoSinCurveIsContinuousOnPosReal : ContinuousOn (sinCurve) (PosReal) :=
+  ContinuousOn.prodMk continuous_id.continuousOn sinWithinvFunIsContinuousOnPosReal
 
--- lemma posIntervalIsPathConnected : IsPathConnected (PosReal) := by
---   apply Convex.isPathConnected
---   · exact convex_Ioi 0
---   · use 1
---     unfold PosReal
---     simp
+lemma posIntervalIsPathConnected : IsPathConnected (PosReal) := by
+  apply Convex.isPathConnected
+  · exact convex_Ioi 0
+  · use 1
+    unfold PosReal
+    simp
 
--- lemma SIsPathConn : IsPathConnected S := by
---   apply IsPathConnected.image'
---   · exact posIntervalIsPathConnected
---   · exact topoSinCurveIsContinuousOnPosReal
+lemma SIsPathConn : IsPathConnected S := by
+  apply IsPathConnected.image'
+  · exact posIntervalIsPathConnected
+  · exact topoSinCurveIsContinuousOnPosReal
 
--- lemma SisConnected : IsConnected S := SIsPathConn.isConnected
+lemma SisConnected : IsConnected S := SIsPathConn.isConnected
 
--- lemma ZisConnected : IsConnected Z := isConnected_singleton
+lemma ZisConnected : IsConnected Z := isConnected_singleton
 
--- -- T is connected
+-- T is connected
 
--- theorem TisConnected : IsConnected T := by
---   apply IsConnected.subset_closure
---   · exact SisConnected
---   · tauto_set
---   · exact TsubClsOfS
+theorem TisConnected : IsConnected T := by
+  apply IsConnected.subset_closure
+  · exact SisConnected
+  · tauto_set
+  · exact TsubClsOfS
